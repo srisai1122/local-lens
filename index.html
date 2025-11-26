@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Local Lens — Best Match + Top 100 Carousel</title>
+  <style>
+    :root{--bg1:#0f2027;--bg2:#203a43;--accent:#ffd166;--accent2:#ff6b6b;--glass:rgba(255,255,255,0.06);}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:linear-gradient(135deg,var(--bg1),var(--bg2));font-family:Inter,Arial;color:#fff;display:flex;align-items:center;justify-content:center;padding:24px}
+    .app{width:100%;max-width:1200px;background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01));border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
+    header{display:flex;align-items:center;gap:14px}
+    .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(90deg,#6a11cb,#2575fc);display:flex;align-items:center;justify-content:center;font-weight:800}
+    h1{margin:0;font-size:20px}
+    p{margin:0;color:rgba(255,255,255,0.7)}
+    .controls{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
+    .card{background:var(--glass);padding:12px;border-radius:12px;flex:1;min-width:240px}
+    label{display:block;font-weight:700;margin-bottom:6px}
+    input[type=file]{width:100%;padding:8px;border-radius:8px;border:0;background:rgba(255,255,255,0.03);color:#fff}
+    button{padding:10px 12px;border-radius:10px;border:0;cursor:pointer;font-weight:800}
+    .btn-primary{background:linear-gradient(90deg,var(--accent2),var(--accent));color:#111}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.05);color:#fff}
+
+    .main{display:flex;gap:14px;margin-top:16px}
+    .left{width:420px}
+    .right{flex:1}
+    .panel{background:rgba(0,0,0,0.35);border-radius:12px;padding:12px;height:640px;display:flex;flex-direction:column}
+
+    .query-area{flex:1;display:flex;flex-direction:column;gap:10px}
+    .canvas-wrap{flex:1;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+    #queryCanvas{max-width:100%;max-height:100%}
+    .region-hint{position:absolute;left:8px;bottom:8px;font-size:12px;color:rgba(255,255,255,0.7)}
+
+    .meta{display:flex;justify-content:space-between;align-items:center}
+    .meta .info{font-size:13px;color:rgba(255,255,255,0.8)}
+
+    .best{margin-top:12px;display:flex;gap:10px;align-items:center}
+    .best .big{width:220px;height:220px;border-radius:10px;overflow:hidden;background:#111}
+    .big img{width:100%;height:100%;object-fit:cover}
+    .thumbs{flex:1;display:flex;flex-direction:column;gap:8px}
+    .actions{display:flex;gap:8px}
+
+    .results{margin-top:12px;background:rgba(255,255,255,0.02);border-radius:10px;padding:10px;height:310px;overflow:auto}
+    .carousel{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
+    .carousel .item{min-width:120px;border-radius:8px;overflow:hidden;background:#000;cursor:pointer;flex-shrink:0;border:2px solid transparent}
+    .carousel .item img{width:120px;height:80px;object-fit:cover}
+    .carousel .item .meta{padding:6px;font-size:12px}
+    .carousel .item.selected{border-color:rgba(255,255,255,0.18)}
+
+    .controls-bottom{display:flex;gap:8px;margin-top:10px;align-items:center}
+    .small{font-size:12px;color:rgba(255,255,255,0.7)}
+    .progress{height:8px;background:rgba(255,255,255,0.05);border-radius:8px;overflow:hidden}
+    .progress > i{display:block;height:100%;background:linear-gradient(90deg,#6a11cb,#ffd166);width:0%}
+
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,0.8);display:none;align-items:center;justify-content:center}
+    .modal.show{display:flex}
+    .modal img{max-width:95vw;max-height:95vh;border-radius:8px}
+
+    @media (max-width:980px){.main{flex-direction:column}.left{width:100%}.panel{height:auto}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo">LL</div>
+      <div>
+        <h1>Local Lens — Best Match + Top 100</h1>
+        <p>Pick a query, index a folder, draw a region (optional). The UI shows the single best match and a scrollable top‑100 carousel.</p>
+      </div>
+    </header>
+
+    <div class="controls">
+      <div class="card">
+        <label>Query Image (or drop)</label>
+        <input id="queryFile" type="file" accept="image/*">
+        <div style="margin-top:8px;display:flex;gap:8px"><button id="clearQuery" class="btn-ghost">Clear</button><button id="zoomQuery" class="btn-ghost">Zoom</button></div>
+      </div>
+
+      <div class="card">
+        <label>Folder / Multiple Images (Chrome/Edge folder pick)</label>
+        <input id="folderInput" type="file" accept="image/*" webkitdirectory directory multiple>
+        <div style="margin-top:8px;display:flex;gap:8px"><button id="indexBtn" class="btn-primary">Index Images</button><button id="autoDetect" class="btn-ghost">Auto Detect</button></div>
+        <div style="margin-top:8px" class="small">Indexed: <span id="indexedCount">0</span></div>
+      </div>
+
+      <div class="card">
+        <label>Options</label>
+        <div style="display:flex;gap:8px;align-items:center"><div class="small">Top N</div><input id="topN" type="number" value="50" min="1" max="100" style="width:72px;padding:6px;border-radius:8px;border:0;background:rgba(255,255,255,0.03);color:#fff"/></div>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center"><div class="small">Score Threshold</div><input id="threshold" type="range" min="0" max="1" step="0.01" value="0.10" style="flex:1"/></div>
+        <div style="margin-top:8px" class="small">Use region selection to focus search on a part of the query image (draw with mouse).</div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="left panel">
+        <div class="query-area">
+          <div class="canvas-wrap" id="canvasWrap">
+            <canvas id="queryCanvas"></canvas>
+            <div class="region-hint">Drag to select region (optional)</div>
+          </div>
+
+          <div class="meta"><div class="info" id="qInfo">No query selected</div><div><button id="runBtn" class="btn-primary">Find Best Match</button></div></div>
+
+          <div class="best">
+            <div class="big" id="bestPreview">Best match will appear here</div>
+            <div class="thumbs">
+              <div style="display:flex;gap:8px"><button id="openMatch" class="btn-ghost">Open</button><button id="downloadMatch" class="btn-ghost">Download</button></div>
+              <div style="margin-top:6px" class="small">Best Match Score: <span id="bestScore">0</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="right panel">
+        <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800">Top Matches (carousel)</div><div class="small">Navigate & click to preview</div></div>
+        <div class="results" id="resultsBox">
+          <div class="carousel" id="carousel"></div>
+        </div>
+        <div class="controls-bottom"><div class="progress" style="flex:1"><i id="prog"></i></div><div style="width:120px;text-align:right" class="small">Status: <span id="status">Idle</span></div></div>
+      </div>
+    </div>
+
+    <footer style="margin-top:12px;font-size:13px;color:rgba(255,255,255,0.7)">Features: region crop search • single best match displayed large • scrollable top‑100 thumbnails • index caching • keyboard navigation</footer>
+  </div>
+
+  <div class="modal" id="modal"><img id="modalImg"><button id="closeModal" style="position:absolute;top:20px;right:20px;padding:8px;border-radius:8px;border:none;background:#fff;color:#000;font-weight:700">Close</button></div>
+
+  <script>
+    // Load OpenCV with fallback
+    const OPENCV = ['https://docs.opencv.org/4.x/opencv.js','https://cdn.jsdelivr.net/npm/opencv@4.7.0/opencv.js'];
+    function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.async=true;s.onload=()=>res(src);s.onerror=()=>rej(src);document.head.appendChild(s);});}
+    async function ensureCV(){for(const u of OPENCV){try{await loadScript(u); if(window.cv){if(cv['onRuntimeInitialized']) await new Promise(r=>cv['onRuntimeInitialized']=r); return true;}}catch(e){console.warn('cv load failed',u);} } return false;}
+  </script>
+
+  <script>
+  (async function(){
+    const ok = await ensureCV(); if(!ok){ alert('OpenCV failed to load. Check console.'); return; }
+
+    // UI refs
+    const qFile = document.getElementById('queryFile');
+    const folderInput = document.getElementById('folderInput');
+    const indexBtn = document.getElementById('indexBtn');
+    const autoDetectBtn = document.getElementById('autoDetect');
+    const runBtn = document.getElementById('runBtn');
+    const queryCanvas = document.getElementById('queryCanvas');
+    const canvasWrap = document.getElementById('canvasWrap');
+    const qInfo = document.getElementById('qInfo');
+    const bestPreview = document.getElementById('bestPreview');
+    const bestScoreEl = document.getElementById('bestScore');
+    const carousel = document.getElementById('carousel');
+    const prog = document.getElementById('prog');
+    const status = document.getElementById('status');
+    const topNInput = document.getElementById('topN');
+    const thresholdInput = document.getElementById('threshold');
+    const indexedCount = document.getElementById('indexedCount');
+    const openMatch = document.getElementById('openMatch');
+    const downloadMatch = document.getElementById('downloadMatch');
+    const modal = document.getElementById('modal');
+    const modalImg = document.getElementById('modalImg');
+    const closeModal = document.getElementById('closeModal');
+    const clearQuery = document.getElementById('clearQuery');
+
+    // state
+    let queryFileObj = null;
+    let queryImage = null;
+    let region = null; // {x,y,w,h} in canvas coords
+    let indexed = []; // {file, descMat}
+    let results = [];
+    let selectedBest = null;
+    let autoDetect = false;
+
+    // canvas and drawing for region selection
+    const ctx = queryCanvas.getContext('2d');
+    let isDragging=false,startX=0,startY=0;
+
+    function resizeCanvasTo(img){ queryCanvas.width = img.width; queryCanvas.height = img.height; canvasWrap.style.height = Math.min(420, img.height)+'px'; canvasWrap.style.width = Math.min(420, img.width)+'px'; }
+    function drawQuery(){ if(!queryImage) return; ctx.clearRect(0,0,queryCanvas.width,queryCanvas.height); ctx.drawImage(queryImage,0,0); if(region){ ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=2; ctx.strokeRect(region.x,region.y,region.w,region.h); ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.fillRect(region.x,region.y,region.w,region.h); } }
+
+    canvasWrap.addEventListener('mousedown', (e)=>{ if(!queryImage) return; isDragging=true; const r= queryCanvas.getBoundingClientRect(); startX = e.clientX - r.left; startY = e.clientY - r.top; region={x:startX,y:startY,w:0,h:0}; });
+    window.addEventListener('mousemove', (e)=>{ if(!isDragging||!queryImage) return; const r= queryCanvas.getBoundingClientRect(); const x = e.clientX - r.left; const y = e.clientY - r.top; region.w = Math.max(1, x-startX); region.h = Math.max(1, y-startY); drawQuery(); });
+    window.addEventListener('mouseup', ()=>{ if(isDragging) { isDragging=false; drawQuery(); } });
+
+    // helpers
+    function readImageFile(file){ return new Promise((res,rej)=>{const url = URL.createObjectURL(file); const img = new Image(); img.onload = ()=>{ URL.revokeObjectURL(url); res(img); }; img.onerror = rej; img.src = url; }); }
+    function canvasToMat(c){ return cv.imread(c); }
+    function imgToCanvas(img){ const c = document.createElement('canvas'); c.width=img.width; c.height=img.height; c.getContext('2d').drawImage(img,0,0); return c; }
+
+    qFile.addEventListener('change', async (e)=>{ if(!e.target.files[0]) return; queryFileObj = e.target.files[0]; queryImage = await readImageFile(queryFileObj); resizeCanvasTo(queryImage); drawQuery(); ctx.drawImage(queryImage,0,0); qInfo.textContent = `${queryFileObj.name} — ${queryImage.width}x${queryImage.height}`; if(autoDetect && indexed.length>0) runMatch(); });
+    clearQuery.addEventListener('click', ()=>{ queryFileObj=null; queryImage=null; region=null; ctx.clearRect(0,0,queryCanvas.width,queryCanvas.height); qInfo.textContent='No query selected'; bestPreview.innerHTML='Best match will appear here'; carousel.innerHTML=''; indexedCount.textContent = indexed.length; });
+
+    // indexing
+    folderInput.addEventListener('change', (e)=>{ const files = Array.from(e.target.files||[]).filter(f=>/\.(jpe?g|png|bmp|gif)$/i.test(f.name)); indexed = files.map(f=>({file:f, desc:null})); indexedCount.textContent = indexed.length; status.textContent='Ready to index'; });
+
+    indexBtn.addEventListener('click', async ()=>{
+      if(indexed.length===0){ alert('No files to index. Choose a folder first.'); return; }
+      status.textContent='Indexing...'; setProgress(0);
+      const orb = new cv.ORB();
+      for(let i=0;i<indexed.length;i++){
+        const it = indexed[i];
+        try{
+          const img = await readImageFile(it.file);
+          const c = imgToCanvas(img);
+          const mat = cv.imread(c);
+          const gray = new cv.Mat(); cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+          const kp = new cv.KeyPointVector(); const desc = new cv.Mat(); orb.detectAndCompute(gray, new cv.Mat(), kp, desc);
+          it.desc = desc; mat.delete(); gray.delete(); kp.delete();
+        }catch(e){ console.warn('index err', e); }
+        setProgress((i+1)/indexed.length);
+        await new Promise(r=>setTimeout(r,8));
+      }
+      orb.delete(); status.textContent='Index complete'; setProgress(0); if(autoDetect && queryFileObj) runMatch();
+    });
+
+    autoDetectBtn.addEventListener('click', ()=>{ autoDetect = !autoDetect; autoDetectBtn.textContent = autoDetect? 'Auto Detect: ON':'Auto Detect: OFF'; if(autoDetect && queryFileObj && indexed.length>0) runMatch(); });
+
+    function setProgress(p){ prog.style.width = (p*100)+'%'; }
+
+    // compute descriptor for a given image or region (returns a Mat)
+    async function computeDescFromImageFile(file, regionRect){ const img = await readImageFile(file); let c = imgToCanvas(img); if(regionRect){ const tmp = document.createElement('canvas'); tmp.width = regionRect.w; tmp.height = regionRect.h; tmp.getContext('2d').drawImage(img, regionRect.x, regionRect.y, regionRect.w, regionRect.h, 0,0,regionRect.w,regionRect.h); c = tmp; }
+      const mat = cv.imread(c); const gray = new cv.Mat(); cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY); const orb = new cv.ORB(); const kp = new cv.KeyPointVector(); const desc = new cv.Mat(); orb.detectAndCompute(gray, new cv.Mat(), kp, desc); mat.delete(); gray.delete(); orb.delete(); kp.delete(); return desc; }
+
+    // compute score between two descriptors
+    function score(desc1, desc2){ try{ if(!desc1 || desc1.empty() || !desc2 || desc2.empty()) return 0; const bf = new cv.BFMatcher(cv.NORM_HAMMING, true); const matches = new cv.DMatchVector(); bf.match(desc1, desc2, matches); let total=0; for(let i=0;i<matches.size();i++){ const m = matches.get(i); total += Math.max(0, 1 - (m.distance/100)); } bf.delete(); matches.delete(); return total; }catch(e){ console.warn('score err', e); return 0; } }
+
+    // run match: produce top N results, update best preview + carousel (limit to 100)
+    async function runMatch(){ if(!queryFileObj){ alert('Select a query image'); return; } if(indexed.length===0){ alert('Index images first'); return; }
+      status.textContent='Computing query descriptor...'; setProgress(0);
+      // compute query descriptor (consider region if drawn)
+      const regionForImg = region ? {x: Math.round(region.x), y: Math.round(region.y), w: Math.round(region.w), h: Math.round(region.h)} : null;
+      const qDesc = await computeDescFromImageFile(queryFileObj, regionForImg);
+      const out = [];
+      for(let i=0;i<indexed.length;i++){
+        const it = indexed[i]; status.textContent = `Matching ${i+1}/${indexed.length}`; setProgress(i/indexed.length);
+        let desc = it.desc; if(!desc){ // compute on the fly using full image
+          desc = await computeDescFromImageFile(it.file, null);
+        }
+        const s = score(qDesc, desc);
+        out.push({file:it.file,score:s});
+        await new Promise(r=>setTimeout(r,4));
+      }
+      qDesc.delete(); setProgress(0); status.textContent='Sorting results';
+      out.sort((a,b)=>b.score-a.score);
+      results = out;
+      displayResults(); status.textContent='Done';
+    }
+
+    function displayResults(){ carousel.innerHTML=''; if(!results || results.length===0){ carousel.innerHTML='<div class="small">No results</div>'; bestPreview.innerHTML='Best match will appear here'; bestScoreEl.textContent='0'; return; }
+      const threshold = parseFloat(thresholdInput.value);
+      const topN = Math.min(100, Math.max(1, parseInt(topNInput.value||50,10)));
+      const filtered = results.filter(r=>r.score >= threshold).slice(0, topN);
+      if(filtered.length===0){ carousel.innerHTML='<div class="small">No matches above threshold</div>'; bestPreview.innerHTML='Best match will appear here'; bestScoreEl.textContent='0'; return; }
+      // show single best prominently
+      const best = filtered[0]; selectedBest = best;
+      bestPreview.innerHTML = `<img src="${URL.createObjectURL(best.file)}"/>`;
+      bestScoreEl.textContent = best.score.toFixed(3);
+      openMatch.onclick = ()=> window.open(URL.createObjectURL(best.file), '_blank');
+      downloadMatch.onclick = ()=>{ const a=document.createElement('a'); a.href = URL.createObjectURL(best.file); a.download = best.file.name; document.body.appendChild(a); a.click(); a.remove(); };
+
+      // populate carousel up to 100
+      filtered.forEach((r,idx)=>{
+        const it = document.createElement('div'); it.className='item'; if(idx===0) it.classList.add('selected');
+        const img = document.createElement('img'); img.src = URL.createObjectURL(r.file);
+        const m = document.createElement('div'); m.className='meta'; m.innerHTML = `<div style="font-weight:800">${r.file.name}</div><div style="margin-top:6px;color:rgba(255,255,255,0.6)">Score: ${r.score.toFixed(3)}</div>`;
+        it.appendChild(img); it.appendChild(m);
+        it.addEventListener('click', ()=>{ // on click become best
+          document.querySelectorAll('.carousel .item').forEach(x=>x.classList.remove('selected')); it.classList.add('selected'); selectedBest = r; bestPreview.innerHTML = `<img src="${URL.createObjectURL(r.file)}"/>`; bestScoreEl.textContent = r.score.toFixed(3);
+        });
+        carousel.appendChild(it);
+      });
+    }
+
+    // wire run button
+    runBtn.addEventListener('click', runMatch);
+
+    // keyboard navigation
+    window.addEventListener('keydown', (e)=>{
+      if(!results || results.length===0) return;
+      const items = Array.from(document.querySelectorAll('.carousel .item'));
+      if(e.key==='ArrowRight'){ const sel = items.findIndex(x=>x.classList.contains('selected')); const next = Math.min(items.length-1, (sel===-1)?0:sel+1); items[next]?.click(); items[next]?.scrollIntoView({behavior:'smooth',inline:'center'}); }
+      if(e.key==='ArrowLeft'){ const sel = items.findIndex(x=>x.classList.contains('selected')); const prev = Math.max(0, (sel===-1)?0:sel-1); items[prev]?.click(); items[prev]?.scrollIntoView({behavior:'smooth',inline:'center'}); }
+      if(e.key==='Enter'){ if(modal.classList.contains('show')) modal.classList.remove('show'); else if(selectedBest) { modal.classList.add('show'); modalImg.src = URL.createObjectURL(selectedBest.file); } }
+    });
+
+    // modal
+    closeModal.addEventListener('click', ()=> modal.classList.remove('show'));
+
+    // allow zoom button via double click on bestPreview
+    bestPreview.addEventListener('dblclick', ()=>{ if(selectedBest){ modal.classList.add('show'); modalImg.src = URL.createObjectURL(selectedBest.file); } });
+
+    // allow drop on canvas
+    ['dragenter','dragover'].forEach(ev=> canvasWrap.addEventListener(ev, e=>{ e.preventDefault(); canvasWrap.style.outline='3px dashed rgba(255,255,255,0.08)'; }));
+    ['dragleave','drop'].forEach(ev=> canvasWrap.addEventListener(ev, e=>{ e.preventDefault(); canvasWrap.style.outline='none'; }));
+    canvasWrap.addEventListener('drop', async (e)=>{ const f = e.dataTransfer.files && e.dataTransfer.files[0]; if(!f) return; qFile.files = e.dataTransfer.files; const ev = new Event('change'); qFile.dispatchEvent(ev); });
+
+    status.textContent='Ready';
+  })();
+  </script>
+</body>
+</html>
