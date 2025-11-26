@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -65,19 +66,19 @@
       <div class="logo">LL</div>
       <div>
         <h1>Local Lens — Best Match + Top 100</h1>
-        <p>Pick a query, index a folder, draw a region (optional). The UI shows the single best match and a scrollable top‑100 carousel.</p>
+        <p>Pick a query, index a folder, draw a region (optional). The UI shows the single best match.</p>
       </div>
     </header>
 
     <div class="controls">
       <div class="card">
-        <label>Query Image (or drop)</label>
+        <label>Select Image (or drop)</label>
         <input id="queryFile" type="file" accept="image/*">
         <div style="margin-top:8px;display:flex;gap:8px"><button id="clearQuery" class="btn-ghost">Clear</button><button id="zoomQuery" class="btn-ghost">Zoom</button></div>
       </div>
 
       <div class="card">
-        <label>Folder / Multiple Images (Chrome/Edge folder pick)</label>
+        <label>Folder / Multiple Images (Cpick)</label>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory directory multiple>
         <div style="margin-top:8px;display:flex;gap:8px"><button id="indexBtn" class="btn-primary">Index Images</button><button id="autoDetect" class="btn-ghost">Auto Detect</button></div>
         <div style="margin-top:8px" class="small">Indexed: <span id="indexedCount">0</span></div>
@@ -297,3 +298,4 @@
   </script>
 </body>
 </html>
+
